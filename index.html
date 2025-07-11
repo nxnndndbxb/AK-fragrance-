@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>AK Fragrance</title>
+    
+    <!-- Google Fonts for a luxury feel -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Montserrat:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
+
+    <style>
+        /* --- General & Reset CSS --- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            overflow: hidden; /* Prevents scrolling on the body itself */
+        }
+
+        h1, h2, h3 {
+            font-family: 'Playfair Display', serif;
+            color: #D4AF37; /* A luxurious gold color */
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* --- Authentication Pages (Login/Register) --- */
+        .auth-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .auth-form {
+            background-color: #1e1e1e;
+            padding: 40px 30px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .auth-form h2 {
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .auth-form p {
+            margin-bottom: 25px;
+            color: #aaa;
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 25px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 15px;
+            background-color: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 5px;
+            color: #e0e0e0;
+            font-size: 1em;
+        }
+
+        .auth-button {
+            width: 100%;
+            padding: 15px;
+            background-color: #D4AF37;
+            color: #121212;
+            border: none;
+            border-radius: 5px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .auth-button:hover {
+            background-color: #b89a31;
+        }
+
+        .auth-switch {
+            margin-top: 20px;
+            font-size: 0.9em;
+        }
+
+        .auth-switch a {
+            color: #D4AF37;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        #error-message {
+            color: #ff5c5c;
+            margin-top: 15px;
+            min-height: 20px;
+            font-size: 0.9em;
+        }
+
+        /* --- Main App Page --- */
+        #app-page {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100%;
+        }
+
+        header {
+            padding: 15px 20px;
+            background-color: #1e1e1e;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+        }
+
+        header h1 {
+            font-size: 1.5em;
+        }
+
+        #logout-button {
+            background: none;
+            border: none;
+            color: #aaa;
+            font-size: 1.4em;
+            cursor: pointer;
+        }
+
+        #main-content {
+            flex-grow: 1; /* Takes up remaining space */
+            padding: 30px 20px;
+            overflow-y: auto; /* Allows content to scroll */
+            text-align: center;
+        }
+        
+        #main-content h2 {
+            font-size: 2em;
+            margin-bottom: 20px;
+        }
+
+        #main-content p {
+            color: #bbb;
+            font-size: 1.1em;
+            line-height: 1.6;
+        }
+
+
+        /* --- Welcome Popup --- */
+        .popup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        .popup-content {
+            background: #1e1e1e;
+            padding: 40px;
+            border-radius: 10px;
+            text-align: center;
+            border-top: 5px solid #D4AF37;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+            transform: scale(0.9);
+            animation: popIn 0.5s ease-in-out forwards;
+        }
+
+        .popup-content h2 {
+            font-size: 2.2em;
+        }
+
+        .popup-content p {
+            margin-top: 10px;
+            font-size: 1.1em;
+            color: #ccc;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes popIn {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+
+        /* --- Bottom Navigation --- */
+        .bottom-nav {
+            display: flex;
+            justify-content: space-around;
+            background-color: #1e1e1e;
+            padding: 10px 0;
+            border-top: 1px solid #333;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+        }
+
+        .nav-button {
+            background: none;
+            border: none;
+            color: #888;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 10px;
+            font-family: 'Montserrat', sans-serif;
+            cursor: pointer;
+            transition: color 0.3s;
+            flex-grow: 1;
+        }
+
+        .nav-button i {
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+
+        .nav-button.active, .nav-button:hover {
+            color: #D4AF37;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- ======== LOGIN PAGE ======== -->
+    <div id="login-page" class="auth-container">
+        <div class="auth-form">
+            <h2>AK Fragrance</h2>
+            <p>Sign in to continue</p>
+            <form id="login-form">
+                <div class="input-group">
+                    <input type="email" id="login-email" placeholder="Email" required>
+                </div>
+                <div class="input-group">
+                    <input type="password" id="login-password" placeholder="Password" required>
+                </div>
+                <button type="submit" class="auth-button">Login</button>
+            </form>
+            <div id="login-error-message" class="error-message"></div>
+            <p class="auth-switch">
+                Don't have an account? <a href="#" id="show-register-link">Register Now</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- ======== REGISTER PAGE ======== -->
+    <div id="register-page" class="auth-container hidden">
+        <div class="auth-form">
+            <h2>Create Account</h2>
+            <p>Join the AK Fragrance family</p>
+            <form id="register-form">
+                <div class="input-group">
+                    <input type="email" id="register-email" placeholder="Email" required>
+                </div>
+                <div class="input-group">
+                    <input type="password" id="register-password" placeholder="Password (min. 6 characters)" required>
+                </div>
+                <button type="submit" class="auth-button">Register</button>
+            </form>
+            <div id="register-error-message" class="error-message"></div>
+            <p class="auth-switch">
+                Already have an account? <a href="#" id="show-login-link">Login Here</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- ======== MAIN APP (HOME) PAGE ======== -->
+    <div id="app-page" class="hidden">
+        
+        <!-- Beautiful Welcome Popup -->
+        <div id="welcome-popup" class="popup-overlay hidden">
+            <div class="popup-content">
+                <h2>Welcome Back!</h2>
+                <p>Discover your signature scent with us.</p>
+            </div>
+        </div>
+
+        <header>
+            <h1>AK Fragrance</h1>
+            <button id="logout-button" title="Logout"><i class="fas fa-sign-out-alt"></i></button>
+        </header>
+
+        <main id="main-content">
+            <!-- Content will be dynamically inserted here by JS -->
+            <h2>Home</h2>
+            <p>Welcome to AK Fragrance. Explore our exclusive collection by selecting a category below.</p>
+        </main>
+
+        <nav class="bottom-nav">
+            <button class="nav-button active" data-page="home">
+                <i class="fas fa-home"></i>
+                <span>Home</span>
+            </button>
+            <button class="nav-button" data-page="child">
+                <i class="fas fa-child"></i>
+                <span>Child</span>
+            </button>
+            <button class="nav-button" data-page="female">
+                <i class="fas fa-venus"></i>
+                <span>Female</span>
+            </button>
+            <button class="nav-button" data-page="male">
+                <i class="fas fa-mars"></i>
+                <span>Male</span>
+            </button>
+            <button class="nav-button" data-page="wallet">
+                <i class="fas fa-wallet"></i>
+                <span>Wallet</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <script>
+        // --- START: FIREBASE CONFIGURATION ---
+        // WARNING: It is NOT secure to expose your API key in client-side code for a real application.
+        // Use Firebase Security Rules and App Check for protection.
+        const firebaseConfig = {
+            apiKey: "AIzaSyDJ4yBjI25V0hEn8LM-oR5Mh9C1Kf0cV4o",
+            authDomain: "ak-fragrance.firebaseapp.com", // You can get this from your Firebase project settings
+            databaseURL: "https://ak-fragrance-default-rtdb.asia-southeast1.firebasedatabase.app/",
+            projectId: "ak-fragrance", // You can get this from your Firebase project settings
+            storageBucket: "ak-fragrance.appspot.com", // You can get this from your Firebase project settings
+            messagingSenderId: "YOUR_SENDER_ID", // Optional, you can get this
+            appId: "YOUR_APP_ID" // Optional, you can get this
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+        // --- END: FIREBASE CONFIGURATION ---
+
+
+        // --- DOM Element Selection ---
+        const loginPage = document.getElementById('login-page');
+        const registerPage = document.getElementById('register-page');
+        const appPage = document.getElementById('app-page');
+        
+        const showRegisterLink = document.getElementById('show-register-link');
+        const showLoginLink = document.getElementById('show-login-link');
+
+        const loginForm = document.getElementById('login-form');
+        const registerForm = document.getElementById('register-form');
+        
+        const loginErrorMessage = document.getElementById('login-error-message');
+        const registerErrorMessage = document.getElementById('register-error-message');
+
+        const logoutButton = document.getElementById('logout-button');
+        const welcomePopup = document.getElementById('welcome-popup');
+        const bottomNav = document.querySelector('.bottom-nav');
+        const mainContent = document.getElementById('main-content');
+
+
+        // --- Page Switching Logic ---
+        showRegisterLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            loginPage.classList.add('hidden');
+            registerPage.classList.remove('hidden');
+        });
+
+        showLoginLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            registerPage.classList.add('hidden');
+            loginPage.classList.remove('hidden');
+        });
+
+        // --- Firebase Authentication State Observer ---
+        // This is the core logic that checks if a user is logged in or not.
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                // User is signed in.
+                console.log('User is logged in:', user.email);
+                loginPage.classList.add('hidden');
+                registerPage.classList.add('hidden');
+                appPage.classList.remove('hidden');
+
+                // Show the welcome popup for a few seconds
+                welcomePopup.classList.remove('hidden');
+                setTimeout(() => {
+                    welcomePopup.classList.add('hidden');
+                }, 3000); // Popup will disappear after 3 seconds
+
+            } else {
+                // User is signed out.
+                console.log('User is logged out.');
+                appPage.classList.add('hidden');
+                registerPage.classList.add('hidden');
+                loginPage.classList.remove('hidden');
+            }
+        });
+
+
+        // --- Registration Logic ---
+        registerForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('register-email').value;
+            const password = document.getElementById('register-password').value;
+            
+            registerErrorMessage.textContent = ''; // Clear previous errors
+
+            auth.createUserWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    // Signed in 
+                    const user = userCredential.user;
+                    console.log('Registration successful for:', user.email);
+                    
+                    // You can save additional user data to the database here if you want
+                    database.ref('users/' + user.uid).set({
+                        email: user.email,
+                        createdAt: new Date().toISOString()
+                    });
+                })
+                .catch((error) => {
+                    registerErrorMessage.textContent = error.message;
+                });
+        });
+
+
+        // --- Login Logic ---
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            
+            loginErrorMessage.textContent = ''; // Clear previous errors
+
+            auth.signInWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    // Signed in
+                    const user = userCredential.user;
+                    console.log('Login successful for:', user.email);
+                })
+                .catch((error) => {
+                    loginErrorMessage.textContent = error.message;
+                });
+        });
+
+
+        // --- Logout Logic ---
+        logoutButton.addEventListener('click', () => {
+            auth.signOut().then(() => {
+                console.log('User signed out successfully.');
+            }).catch((error) => {
+                console.error('Sign out error:', error);
+            });
+        });
+
+
+        // --- Bottom Navigation Logic ---
+        bottomNav.addEventListener('click', (e) => {
+            const clickedButton = e.target.closest('.nav-button');
+            if (!clickedButton) return;
+
+            // Remove active class from all buttons
+            document.querySelectorAll('.nav-button').forEach(btn => btn.classList.remove('active'));
+            // Add active class to the clicked button
+            clickedButton.classList.add('active');
+
+            const page = clickedButton.dataset.page;
+            updateMainContent(page);
+        });
+
+        function updateMainContent(pageName) {
+            let title = '';
+            let content = '';
+
+            switch (pageName) {
+                case 'home':
+                    title = 'Home';
+                    content = 'Welcome to AK Fragrance. Explore our exclusive collection by selecting a category below.';
+                    break;
+                case 'child':
+                    title = 'For Children';
+                    content = 'Discover our gentle and playful fragrances, specially designed for children.';
+                    break;
+                case 'female':
+                    title = 'For Women';
+                    content = 'Explore a world of elegance and charm with our signature scents for women.';
+                    break;
+                case 'male':
+                    title = 'For Men';
+                    content = 'Find your power and sophistication with our bold and captivating fragrances for men.';
+                    break;
+                case 'wallet':
+                    title = 'My Wallet';
+                    content = 'View your balance, transaction history, and saved payment methods here.';
+                    break;
+                default:
+                    title = 'Home';
+                    content = 'Welcome to AK Fragrance.';
+            }
+
+            mainContent.innerHTML = `<h2>${title}</h2><p>${content}</p>`;
+        }
+
+    </script>
+</body>
+</html>
