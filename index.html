@@ -78,6 +78,13 @@
             box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
         }
 
+        .btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
         .btn-outline {
             background: transparent;
             border: 2px solid #D4AF37;
@@ -423,12 +430,19 @@
             justify-content: space-between; align-items: center; background-color: #f8f5f2;
         }
         .cart-items { padding: 20px; flex: 1; overflow-y: auto; }
-        .cart-item { display: flex; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
+        .cart-item { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
         .cart-item-img { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; margin-right: 15px; }
         .cart-item-details { flex: 1; }
         .cart-item-title { font-weight: 600; margin-bottom: 5px; }
-        .cart-item-price { color: #D4AF37; font-weight: 600; margin-bottom: 10px; }
-        .cart-item-remove { color: #e74c3c; font-size: 12px; cursor: pointer; }
+        .cart-item-price { color: #555; font-size: 14px; margin-bottom: 10px; }
+        .cart-item-subtotal { font-weight: 600; color: #D4AF37; }
+        .cart-item-actions { display: flex; align-items: center; gap: 10px; }
+        .quantity-btn {
+            background: #eee; border: none; width: 25px; height: 25px;
+            border-radius: 50%; cursor: pointer; font-weight: bold;
+        }
+        .cart-item-remove { color: #e74c3c; font-size: 18px; cursor: pointer; margin-left: auto; }
+        
         .cart-footer { padding: 20px; border-top: 1px solid #eee; background-color: #f8f5f2; }
         .cart-total { display: flex; justify-content: space-between; font-weight: 600; font-size: 18px; margin-bottom: 20px; }
         
@@ -571,7 +585,7 @@
                 <div class="shop-content-wrapper">
                     <h2 class="page-title">Shop Our Collection</h2>
                     <div class="category-filters">
-                        <button class="category-btn" data-category="male">Man</button>
+                        <button class="category-btn active" data-category="male">Man</button>
                         <button class="category-btn" data-category="female">Woman</button>
                         <button class="category-btn" data-category="child">Child</button>
                     </div>
@@ -676,9 +690,11 @@
                         <h3 class="text-center" style="margin-bottom: 20px;">Order History</h3>
                         <table class="orders-table">
                             <thead>
-                                <tr><th>Order #</th><th>Date</th><th>Items</th><th>Total</th><th>Status</th></tr>
+                                <tr><th>Order ID</th><th>Date</th><th>Items</th><th>Total</th><th>Status</th></tr>
                             </thead>
-                            <tbody id="orders-list"></tbody>
+                            <tbody id="orders-list">
+                                <tr><td colspan="5" class="text-center">No orders found.</td></tr>
+                            </tbody>
                         </table>
                     </div>
                 </section>
@@ -763,14 +779,31 @@
 
     <script>
         // --- Firebase Configuration (REPLACE WITH YOURS) ---
+        // IMPORTANT: For this to work, you must set up Firebase Realtime Database
+        // with the following security rules for a basic setup:
+        // {
+        //   "rules": {
+        //     "users": {
+        //       "$uid": {
+        //         ".read": "$uid === auth.uid",
+        //         ".write": "$uid === auth.uid"
+        //       }
+        //     },
+        //     "orders": {
+        //        ".read": "auth != null",
+        //       ".write": "auth != null",
+        //       ".indexOn": "userId"
+        //     }
+        //   }
+        // }
         const firebaseConfig = {
-            apiKey: "AIzaSyDJ4yBjI25V0hEn8LM-oR5Mh9C1Kf0cV4o", // This is a public key, but best practice is to restrict it in your Firebase console
+            apiKey: "AIzaSyDJ4yBjI25V0hEn8LM-oR5Mh9C1Kf0cV4o",
             authDomain: "ak-fragrance.firebaseapp.com",
             databaseURL: "https://ak-fragrance-default-rtdb.asia-southeast1.firebasedatabase.app",
             projectId: "ak-fragrance",
             storageBucket: "ak-fragrance.appspot.com",
-            messagingSenderId: "YOUR_SENDER_ID", // Optional
-            appId: "YOUR_APP_ID" // Optional
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
         };
         
         // Initialize Firebase
@@ -786,144 +819,28 @@
         const userAvatar = document.getElementById('user-avatar');
         const userDropdown = document.getElementById('user-dropdown');
         const logo = document.getElementById('logo');
-
-        // Page navigation elements
         const bottomNavLinks = document.querySelectorAll('.bottom-nav-link');
         const footerLinks = document.querySelectorAll('.footer-link');
         const viewProfileBtn = document.getElementById('view-profile');
         const myOrdersBtn = document.getElementById('my-orders');
-        
-        // Modal & Form Elements
         const loginModal = document.getElementById('login-modal');
         const registerModal = document.getElementById('register-modal');
         const loginRequiredBtn = document.getElementById('login-required-btn');
-
-        // Cart Elements
         const cartIcon = document.getElementById('cart-icon');
         const cartModal = document.getElementById('cart-modal');
         const closeCartBtn = document.getElementById('close-cart');
-
-        // Shop Elements
         const categoryFilterBtns = document.querySelectorAll('.category-btn');
         const productsContainer = document.getElementById('products-container');
+        const checkoutBtn = document.getElementById('checkout-btn');
         
         // --- State Variables ---
-        let cart = [];
+        let localCart = [];
+        let currentUser = null;
         let currentSlide = 0;
+        let cartRef;
+        let ordersRef;
         
-        // --- Core Functions ---
-
-        /**
-         * Page Navigation: Hides all main pages and shows the one with the specified ID.
-         * @param {string} pageId The ID of the page section to show.
-         */
-        function showPage(pageId) {
-            allPages.forEach(page => page.classList.remove('active'));
-            const pageToShow = document.getElementById(pageId);
-            if (pageToShow) {
-                pageToShow.classList.add('active');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
-
-            // Update active state on bottom nav
-            bottomNavLinks.forEach(link => {
-                link.classList.toggle('active', link.dataset.page === pageId);
-            });
-        }
-        
-        /**
-         * Updates the UI based on the user's login state.
-         * @param {object|null} user The Firebase user object, or null if logged out.
-         */
-        function updateUIForAuthState(user) {
-            if (user) {
-                document.body.classList.add('logged-in');
-                loginHeaderBtn.classList.add('hidden');
-                loadProfileData(user);
-            } else {
-                document.body.classList.remove('logged-in');
-                loginHeaderBtn.classList.remove('hidden');
-                // If user logs out while on a protected page, redirect to home
-                const activePage = document.querySelector('.page-section.active');
-                if (activePage && (activePage.id === 'shop-page' || activePage.id === 'profile-page')) {
-                    showPage('home-page');
-                }
-                cart = [];
-                updateCartUI();
-            }
-        }
-
-        // --- Event Listeners ---
-
-        // Authentication State Change Listener
-        auth.onAuthStateChanged(updateUIForAuthState);
-
-        // General Navigation
-        const handleNavClick = (e) => {
-            e.preventDefault();
-            const pageId = e.currentTarget.dataset.page;
-            const isProtected = pageId === 'shop-page' || pageId === 'profile-page';
-
-            if (isProtected && !auth.currentUser) {
-                openModal(loginModal);
-            } else {
-                showPage(pageId);
-            }
-        };
-
-        logo.addEventListener('click', () => showPage('home-page'));
-        bottomNavLinks.forEach(link => link.addEventListener('click', handleNavClick));
-        footerLinks.forEach(link => link.addEventListener('click', handleNavClick));
-        viewProfileBtn.addEventListener('click', (e) => { e.preventDefault(); showPage('profile-page'); userDropdown.classList.remove('active'); });
-        myOrdersBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            showPage('profile-page');
-            setTimeout(() => document.querySelector('.orders-section').scrollIntoView({ behavior: 'smooth' }), 100);
-            userDropdown.classList.remove('active');
-        });
-        
-        // Shop Now buttons on slideshow
-        document.querySelectorAll('.shop-now-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                if (!auth.currentUser) {
-                    openModal(loginModal);
-                } else {
-                    showPage('shop-page');
-                }
-            });
-        });
-
-        // Modal & Other UI Listeners
-        loginHeaderBtn.addEventListener('click', () => openModal(loginModal));
-        loginRequiredBtn.addEventListener('click', () => openModal(loginModal));
-        userAvatar.addEventListener('click', (e) => { e.stopPropagation(); userDropdown.classList.toggle('active'); });
-        document.addEventListener('click', () => userDropdown.classList.remove('active'));
-        cartIcon.addEventListener('click', () => cartModal.classList.add('active'));
-        closeCartBtn.addEventListener('click', () => cartModal.classList.remove('active'));
-        document.getElementById('contact-us-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            showNotification('Thank you! Your message has been sent.');
-            e.target.reset();
-        });
-
-        // --- Slideshow Logic ---
-        function initSlideshow() {
-            const slides = document.querySelectorAll('.slide');
-            const dots = document.querySelectorAll('.slide-dot');
-            function showSlide(index) {
-                slides.forEach(slide => slide.classList.remove('active'));
-                dots.forEach(dot => dot.classList.remove('active'));
-                slides[index].classList.add('active');
-                dots[index].classList.add('active');
-                currentSlide = index;
-            }
-            function nextSlide() { showSlide((currentSlide + 1) % slides.length); }
-            setInterval(nextSlide, 5000);
-            dots.forEach(dot => dot.addEventListener('click', () => showSlide(parseInt(dot.dataset.slide))));
-        }
-        
-        // --- Product and Cart Logic ---
+        // --- Product Data ---
         const allProducts = [
             { id: 1, name: "Royal Essence", category: "male", price: 89.99, imageUrl: "https://iili.io/FSyOqIn.jpg" },
             { id: 2, name: "Eternal Bloom", category: "female", price: 95.99, imageUrl: "https://iili.io/FSykdNt.jpg" },
@@ -933,6 +850,83 @@
             { id: 6, name: "Sweet Dreams", category: "child", price: 45.99, imageUrl: "https://iili.io/FSyiG3X.jpg" }
         ];
 
+        // --- Core Functions ---
+
+        /**
+         * Page Navigation: Hides all main pages and shows the one with the specified ID.
+         */
+        function showPage(pageId) {
+            allPages.forEach(page => page.classList.remove('active'));
+            const pageToShow = document.getElementById(pageId);
+            if (pageToShow) {
+                pageToShow.classList.add('active');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+            bottomNavLinks.forEach(link => {
+                link.classList.toggle('active', link.dataset.page === pageId);
+            });
+        }
+        
+        /**
+         * Updates UI when user logs in.
+         */
+        function updateUIForLogin(user) {
+            currentUser = user;
+            document.body.classList.add('logged-in');
+            loginHeaderBtn.classList.add('hidden');
+            loadProfileData(user);
+
+            // Detach old listeners if they exist
+            if (cartRef) cartRef.off();
+            if (ordersRef) ordersRef.off();
+
+            // Setup new real-time listeners for cart and orders
+            cartRef = database.ref('users/' + user.uid + '/cart');
+            cartRef.on('value', snapshot => {
+                localCart = snapshot.val() ? Object.values(snapshot.val()) : [];
+                updateCartUI();
+            });
+
+            ordersRef = database.ref('orders').orderByChild('userId').equalTo(user.uid);
+            ordersRef.on('value', snapshot => {
+                loadOrders(snapshot);
+            });
+        }
+
+        /**
+         * Updates UI when user logs out.
+         */
+        function updateUIForLogout() {
+            currentUser = null;
+            document.body.classList.remove('logged-in');
+            loginHeaderBtn.classList.remove('hidden');
+            
+            // Detach listeners
+            if (cartRef) cartRef.off();
+            if (ordersRef) ordersRef.off();
+
+            // Clear local data and UI
+            localCart = [];
+            updateCartUI();
+            document.getElementById('orders-list').innerHTML = '<tr><td colspan="5" class="text-center">Please login to see your orders.</td></tr>';
+            
+            const activePage = document.querySelector('.page-section.active');
+            if (activePage && (activePage.id === 'shop-page' || activePage.id === 'profile-page')) {
+                showPage('home-page');
+            }
+        }
+
+        // --- Auth State Listener ---
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                updateUIForLogin(user);
+            } else {
+                updateUIForLogout();
+            }
+        });
+
+        // --- Shop & Product Functions ---
+        
         function renderProducts(category) {
             productsContainer.innerHTML = '';
             const filteredProducts = allProducts.filter(p => p.category === category);
@@ -951,55 +945,74 @@
                 `;
                 productsContainer.appendChild(card);
             });
-            // Add event listeners to the new buttons
+
             productsContainer.querySelectorAll('.add-to-cart').forEach(btn => {
                 btn.addEventListener('click', (e) => {
-                    const product = allProducts.find(p => p.id === parseInt(e.currentTarget.dataset.id));
-                    addToCart(product);
+                    const productId = parseInt(e.currentTarget.dataset.id);
+                    const productToAdd = allProducts.find(p => p.id === productId);
+                    addToCart(productToAdd);
                 });
             });
         }
-
-        categoryFilterBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const category = e.currentTarget.dataset.category;
-                categoryFilterBtns.forEach(b => b.classList.remove('active'));
-                e.currentTarget.classList.add('active');
-                renderProducts(category);
-            });
-        });
+        
+        // --- Cart Functions ---
 
         function addToCart(product) {
-            const existingItem = cart.find(item => item.id === product.id);
-            if (existingItem) {
-                existingItem.quantity++;
-            } else {
-                cart.push({ ...product, quantity: 1 });
+            if (!currentUser) {
+                showNotification("Please login to add items to your cart.", "error");
+                openModal(loginModal);
+                return;
             }
-            updateCartUI();
+            const existingItemIndex = localCart.findIndex(item => item.id === product.id);
+            if (existingItemIndex > -1) {
+                localCart[existingItemIndex].quantity++;
+            } else {
+                localCart.push({ ...product, quantity: 1 });
+            }
+            updateCartInDB();
             showNotification(`${product.name} added to cart!`, 'cart');
         }
 
+        function updateCartItemQuantity(productId, change) {
+            const itemIndex = localCart.findIndex(item => item.id === productId);
+            if (itemIndex > -1) {
+                localCart[itemIndex].quantity += change;
+                if (localCart[itemIndex].quantity <= 0) {
+                    localCart.splice(itemIndex, 1); // Remove item if quantity is 0 or less
+                }
+                updateCartInDB();
+            }
+        }
+
         function removeFromCart(productId) {
-            cart = cart.filter(item => item.id !== productId);
-            updateCartUI();
+            localCart = localCart.filter(item => item.id !== productId);
+            updateCartInDB();
+        }
+
+        function updateCartInDB() {
+            if (!currentUser) return;
+            // Use an object with product IDs as keys for easier updating in Firebase
+            const cartForDB = localCart.reduce((obj, item) => {
+                obj[item.id] = item;
+                return obj;
+            }, {});
+            database.ref('users/' + currentUser.uid + '/cart').set(cartForDB);
         }
 
         function updateCartUI() {
             const cartItemsContainer = document.getElementById('cart-items');
-            const cartCount = document.getElementById('cart-count');
-            const cartItemsCount = document.getElementById('cart-items-count');
+            const cartCountEl = document.getElementById('cart-count');
+            const cartItemsCountEl = document.getElementById('cart-items-count');
             const cartTotalEl = document.getElementById('cart-total');
-            const checkoutBtn = document.getElementById('checkout-btn');
             
             cartItemsContainer.innerHTML = '';
             let totalItems = 0;
             let totalPrice = 0;
 
-            if (cart.length === 0) {
+            if (localCart.length === 0) {
                 cartItemsContainer.innerHTML = '<p class="text-center" id="empty-cart-message">Your cart is empty</p>';
             } else {
-                 cart.forEach(item => {
+                 localCart.forEach(item => {
                     totalItems += item.quantity;
                     totalPrice += item.price * item.quantity;
                     const itemEl = document.createElement('div');
@@ -1008,13 +1021,26 @@
                         <img src="${item.imageUrl}" alt="${item.name}" class="cart-item-img">
                         <div class="cart-item-details">
                             <h4 class="cart-item-title">${item.name}</h4>
-                            <p class="cart-item-price">$${item.price.toFixed(2)} × ${item.quantity}</p>
-                            <a href="#" class="cart-item-remove" data-id="${item.id}"><i class="fas fa-trash"></i> Remove</a>
+                            <p class="cart-item-price">$${item.price.toFixed(2)}</p>
+                            <div class="cart-item-actions">
+                                <button class="quantity-btn" data-id="${item.id}" data-change="-1">-</button>
+                                <span>${item.quantity}</span>
+                                <button class="quantity-btn" data-id="${item.id}" data-change="1">+</button>
+                            </div>
                         </div>
+                        <a href="#" class="cart-item-remove" data-id="${item.id}"><i class="fas fa-trash-alt"></i></a>
                     `;
                     cartItemsContainer.appendChild(itemEl);
                 });
             }
+
+            cartItemsContainer.querySelectorAll('.quantity-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const productId = parseInt(btn.dataset.id);
+                    const change = parseInt(btn.dataset.change);
+                    updateCartItemQuantity(productId, change);
+                });
+            });
 
             cartItemsContainer.querySelectorAll('.cart-item-remove').forEach(btn => {
                 btn.addEventListener('click', (e) => {
@@ -1023,25 +1049,53 @@
                 });
             });
 
-            cartCount.textContent = totalItems;
-            cartItemsCount.textContent = totalItems;
-            cartCount.classList.toggle('hidden', totalItems === 0);
+            cartCountEl.textContent = totalItems;
+            cartItemsCountEl.textContent = totalItems;
+            cartCountEl.classList.toggle('hidden', totalItems === 0);
             checkoutBtn.disabled = totalItems === 0;
             cartTotalEl.textContent = totalPrice.toFixed(2);
         }
 
-        // --- Firebase Data Functions (Profile, Orders, Auth Forms) ---
-        // These functions are largely unchanged but are included for completeness.
-        
+        function handleCheckout() {
+            if (!currentUser || localCart.length === 0) {
+                showNotification("Cannot checkout with an empty cart.", "error");
+                return;
+            }
+
+            const total = localCart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+            
+            const newOrder = {
+                userId: currentUser.uid,
+                createdAt: firebase.database.ServerValue.TIMESTAMP,
+                items: localCart,
+                total: total,
+                status: 'pending' // Default status
+            };
+
+            database.ref('orders').push(newOrder)
+                .then(() => {
+                    // Clear the cart from the database
+                    database.ref('users/' + currentUser.uid + '/cart').remove();
+                    showNotification("Order placed successfully! Thank you for your purchase.", 'success');
+                    cartModal.classList.remove('active');
+                    showPage('profile-page');
+                })
+                .catch(err => {
+                    showNotification("There was an error placing your order. Please try again.", "error");
+                    console.error("Checkout Error:", err);
+                });
+        }
+
+
+        // --- Profile & Order Functions ---
         function loadProfileData(user) {
-            if (!user) return;
             database.ref('users/' + user.uid).on('value', (snapshot) => {
                 const userData = snapshot.val();
                 if (userData) {
                     const name = userData.name || 'User';
                     const email = userData.email || user.email;
-                    document.getElementById('user-avatar').textContent = name.charAt(0);
-                    document.getElementById('profile-avatar').textContent = name.charAt(0);
+                    document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
+                    document.getElementById('profile-avatar').textContent = name.charAt(0).toUpperCase();
                     document.getElementById('profile-name').textContent = name;
                     document.getElementById('profile-email').textContent = email;
                     document.getElementById('profile-fullname').textContent = name;
@@ -1049,29 +1103,54 @@
                     document.getElementById('profile-join-date').textContent = new Date(userData.createdAt).toLocaleDateString();
                 }
             });
-            loadOrders(user);
         }
         
-        function loadOrders(user) {
-            // Mock order data for demonstration
-            const mockOrders = [
-                { id: '1001', date: '2023-10-25', items: 2, total: 175.98, status: 'completed' },
-                { id: '1002', date: '2023-10-28', items: 1, total: 95.99, status: 'pending' },
-                { id: '1003', date: '2023-09-15', items: 3, total: 215.97, status: 'cancelled' },
-            ];
+        function loadOrders(snapshot) {
             const ordersList = document.getElementById('orders-list');
             ordersList.innerHTML = '';
-            mockOrders.forEach(order => {
+            
+            if (!snapshot.exists()) {
+                ordersList.innerHTML = '<tr><td colspan="5" class="text-center">You have not placed any orders yet.</td></tr>';
+                return;
+            }
+
+            let orders = [];
+            snapshot.forEach(childSnapshot => {
+                orders.push({ id: childSnapshot.key, ...childSnapshot.val() });
+            });
+
+            // Sort by most recent first
+            orders.sort((a, b) => b.createdAt - a.createdAt);
+
+            orders.forEach(order => {
+                const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>#${order.id}</td>
-                    <td>${order.date}</td>
-                    <td>${order.items}</td>
+                    <td>#${order.id.substring(order.id.length - 6)}</td>
+                    <td>${new Date(order.createdAt).toLocaleDateString()}</td>
+                    <td>${itemCount}</td>
                     <td>$${order.total.toFixed(2)}</td>
                     <td><span class="order-status status-${order.status}">${order.status}</span></td>
                 `;
                 ordersList.appendChild(row);
             });
+        }
+
+        // --- UI & Helper Functions ---
+
+        function initSlideshow() {
+            const slides = document.querySelectorAll('.slide');
+            const dots = document.querySelectorAll('.slide-dot');
+            function showSlide(index) {
+                slides.forEach(slide => slide.classList.remove('active'));
+                dots.forEach(dot => dot.classList.remove('active'));
+                slides[index].classList.add('active');
+                dots[index].classList.add('active');
+                currentSlide = index;
+            }
+            function nextSlide() { showSlide((currentSlide + 1) % slides.length); }
+            setInterval(nextSlide, 5000);
+            dots.forEach(dot => dot.addEventListener('click', () => showSlide(parseInt(dot.dataset.slide))));
         }
 
         function showNotification(message, type = 'success') {
@@ -1094,13 +1173,54 @@
             modal.classList.add('active');
         }
 
-        // -- Initialization --
-        document.addEventListener('DOMContentLoaded', () => {
-            initSlideshow();
-            updateCartUI();
-            showPage('home-page'); // Set the initial page
+        // --- Event Listeners Initialization ---
+        function initEventListeners() {
+            // General Navigation
+            const handleNavClick = (e) => {
+                e.preventDefault();
+                const pageId = e.currentTarget.dataset.page;
+                const isProtected = pageId === 'shop-page' || pageId === 'profile-page';
+
+                if (isProtected && !currentUser) {
+                    openModal(loginModal);
+                } else {
+                    showPage(pageId);
+                }
+            };
+            logo.addEventListener('click', () => showPage('home-page'));
+            bottomNavLinks.forEach(link => link.addEventListener('click', handleNavClick));
+            footerLinks.forEach(link => link.addEventListener('click', handleNavClick));
+            viewProfileBtn.addEventListener('click', (e) => { e.preventDefault(); showPage('profile-page'); userDropdown.classList.remove('active'); });
+            myOrdersBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                showPage('profile-page');
+                setTimeout(() => document.querySelector('.orders-section').scrollIntoView({ behavior: 'smooth' }), 100);
+                userDropdown.classList.remove('active');
+            });
             
-            // Firebase Auth Form Handlers
+            document.querySelectorAll('.shop-now-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (!currentUser) {
+                        openModal(loginModal);
+                    } else {
+                        showPage('shop-page');
+                    }
+                });
+            });
+
+            // Modals & UI
+            loginHeaderBtn.addEventListener('click', () => openModal(loginModal));
+            loginRequiredBtn.addEventListener('click', () => openModal(loginModal));
+            userAvatar.addEventListener('click', (e) => { e.stopPropagation(); userDropdown.classList.toggle('active'); });
+            document.addEventListener('click', () => userDropdown.classList.remove('active'));
+            cartIcon.addEventListener('click', () => cartModal.classList.add('active'));
+            closeCartBtn.addEventListener('click', () => cartModal.classList.remove('active'));
+            document.getElementById('show-register').addEventListener('click', (e) => { e.preventDefault(); openModal(registerModal); });
+            document.getElementById('show-login').addEventListener('click', (e) => { e.preventDefault(); openModal(loginModal); });
+            document.querySelectorAll('.close-modal').forEach(btn => btn.addEventListener('click', () => btn.closest('.modal-overlay, .cart-modal').classList.remove('active')));
+            
+            // Forms
             document.getElementById('login-form').addEventListener('submit', (e) => {
                 e.preventDefault();
                 const email = document.getElementById('login-email').value;
@@ -1132,10 +1252,32 @@
 
             logoutBtn.addEventListener('click', () => auth.signOut().then(() => showNotification('You have been logged out.')));
 
-            // Modal Toggling
-            document.getElementById('show-register').addEventListener('click', (e) => { e.preventDefault(); openModal(registerModal); });
-            document.getElementById('show-login').addEventListener('click', (e) => { e.preventDefault(); openModal(loginModal); });
-            document.querySelectorAll('.close-modal').forEach(btn => btn.addEventListener('click', () => btn.closest('.modal-overlay, .cart-modal').classList.remove('active')));
+            document.getElementById('contact-us-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                showNotification('Thank you! Your message has been sent.');
+                e.target.reset();
+            });
+
+            // Shop
+            categoryFilterBtns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const category = e.currentTarget.dataset.category;
+                    categoryFilterBtns.forEach(b => b.classList.remove('active'));
+                    e.currentTarget.classList.add('active');
+                    renderProducts(category);
+                });
+            });
+
+            // Checkout
+            checkoutBtn.addEventListener('click', handleCheckout);
+        }
+
+        // -- Initialization --
+        document.addEventListener('DOMContentLoaded', () => {
+            initSlideshow();
+            initEventListeners();
+            showPage('home-page');
+            renderProducts('male'); // Initial render for the default active category
         });
 
     </script>
